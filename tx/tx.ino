@@ -1,114 +1,107 @@
-// Include the required Arduino libraries:
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
-
-// Define to which pin of the Arduino the 1-Wire bus is connected:
+#include <avr/sleep.h>
+#include <avr/wdt.h> 
 #define ONE_WIRE_BUS 2
 
-// Create a new instance of the oneWire class to communicate with any OneWire device:
 OneWire oneWire(ONE_WIRE_BUS);
-
-// Pass the oneWire reference to DallasTemperature library:
 DallasTemperature sensors(&oneWire);
-
 RF24 radio(7, 8); // CE, CSN
+
 const byte address[6] = "01488";
 float payload[3];
-
 unsigned long startTime;
 unsigned long currentTime;
-//const unsigned long quarterHour = 1500000;
-const unsigned long quarterHour = 1000;
-
+//const unsigned long quarterHour = 900000;
+const unsigned long quarterHour = 10000;
 int n_samples = 96;
 float samples[96];
-
 float temp = 4.0;
-
-float warmestHour = 2.0;
-float warmestHourIndex = 0;
-
+float coldestDay = 50.0;
+float coldestDayIndex = 0;
 float warmestDay = 1.0;
 float warmestDayIndex = 0;
 
-int comLed = 4;
-
-
-void setup() {
-  // Begin serial communication at a baud rate of 9600:
+void setup() 
+{
   Serial.begin(9600);
+ 
   sensors.begin();
-
-  pinMode(comLed, OUTPUT);
-
+  
   radio.begin();
+  radio.setRetries(15,10);
   radio.openWritingPipe(address);
-  radio.setPALevel(RF24_PA_MIN);
   radio.stopListening();
 
   startTime = millis();
 }
 
-void loop() {
-
-  currentTime = millis();  //get the current "time" (actually the number of milliseconds since the program started)
+void loop() 
+{
+  getWaterTemp();
   
-  // READ ONCE PER 25 MIN
-  if (currentTime - startTime >= quarterHour) 
-  {
-    // READ TEMP
-    sensors.requestTemperatures();
-    temp = sensors.getTempCByIndex(0); // the index 0 refers to the first device
+  payload[0] = temp;
+  payload[1] = coldestDay;
+  payload[2] = warmestDay;
+  
+  bool payloadSent = radio.write(&payload, sizeof(payload));
+  
+  delay(30);
+  radio.powerDown();
+  delayWDT(WDTO_8S);
+  radio.powerUp(); 
+}
 
-    // last element is newest reading and gets shifted one place towards first element every loop
+void getWaterTemp() 
+{
+  currentTime = millis();
+  if (currentTime - startTime >= quarterHour)
+  {
+    sensors.requestTemperatures();
+    temp = sensors.getTempCByIndex(0);
     for (int i = 0; i < n_samples - 1; i++)
     {
       samples[i] = samples[i+1];
     }
-    
     samples[n_samples-1] = temp;
-
-    // GET WARMEST SAMPLE LAST HOUR
-    for (int i = n_samples - 4; i < n_samples; i++)
-    {
-      if (warmestHour < samples[i] && samples[i] > 0 && samples[i] < 30)
-      {
-        warmestHour = samples[i];
-        warmestHourIndex = i;
-      }
-    }
-
-    // GET WARMEST SAMPLE LAST DAY: 
     for (int i = 0; i < n_samples; i++)
     {
-      if (warmestDay < samples[i] && samples[i] > 0 && samples[i] < 30)
+      if ((coldestDay > samples[i]) && (samples[i] > 0) && (samples[i] < 30))
+      {
+        coldestDay = samples[i];
+        coldestDayIndex = i;
+      }
+    }
+    for (int i = 0; i < n_samples; i++)
+    {
+      if ((warmestDay < samples[i]) && (samples[i] > 0) && (samples[i] < 30))
       {
         warmestDay = samples[i];
         warmestDayIndex = i;
       }
     }
-    
     startTime = currentTime;
- 
   }
+}
 
-  payload[0] = temp;
-  payload[1] = warmestHour;
-  payload[2] = warmestDay;
-  
-  bool comOK = radio.write(&payload, sizeof(payload));
+void delayWDT(byte timer) 
+{
+  sleep_enable(); 
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
+  ADCSRA &= ~(1<<ADEN); 
+  WDTCSR |= 0b00011000;
+  WDTCSR =  0b01000000 | timer;
+  wdt_reset();
+  sleep_cpu();
+  sleep_disable();
+  ADCSRA |= (1<<ADEN);
+}
 
-  if (comOK)
-  {
-    digitalWrite(comLed, HIGH);
-  }
-  else 
-  {
-    digitalWrite(comLed, LOW);
-  }
-  
-
+ISR (WDT_vect) 
+{
+  wdt_disable();
+  MCUSR = 0;
 }
