@@ -16,8 +16,8 @@ float dayMax;
 void setup() {
   Serial.begin(9600);
   radio.begin();
+  radio.setPALevel(RF24_PA_MIN);
   radio.openReadingPipe(0, address);
-  radio.setPALevel(RF24_PA_MAX);
   radio.startListening();
 }
 
