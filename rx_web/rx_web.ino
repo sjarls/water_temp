@@ -3,7 +3,6 @@
   Complete project details at https://RandomNerdTutorials.com  
 *********/
 
-// Import required libraries
 #ifdef ESP32
   #include <WiFi.h>
   #include <ESPAsyncWebServer.h>
@@ -24,21 +23,12 @@ RF24 radio(D4, D8); // CE, CSN
 const byte address[6] = "01488";
 
 float receiveData[3];
-
-// Variables to store temperature values
-String tempNow = "";
-String tempMax24 = "";
-String tempMin24 = "";
-
-// Timer variables
+String temp = "";
 unsigned long lastTime = 0;  
 unsigned long timerDelay = 30000;
 
-// Replace with your network credentials
 const char* ssid = "Telenor7889nye";
 const char* password = "nqidqnwlbpxbn";
-
-// Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
 
 const char index_html[] PROGMEM = R"rawliteral(
@@ -108,11 +98,10 @@ setInterval(function ( ) {
 </script>
 </html>)rawliteral";
 
-// Replaces placeholder with DS18B20 values
 String processor(const String& var){
   //Serial.println(var);
   if(var == "TEMPNOW"){
-    return tempNow;
+    return temp;
   }
   else if(var == "TEMPMAX24"){
     return tempMax24;
@@ -124,7 +113,6 @@ String processor(const String& var){
 }
 
 void setup(){
-  // Serial port for debugging purposes
   Serial.begin(115200);
   
   // Connect to Wi-Fi
@@ -136,15 +124,13 @@ void setup(){
   }
   Serial.println();
   
-  // Print ESP Local IP Address
   Serial.println(WiFi.localIP());
 
-  // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/html", index_html, processor);
   });
   server.on("/tempnow", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/plain", tempNow.c_str());
+    request->send_P(200, "text/plain", temp.c_str());
   });
   server.on("/tempmax24", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/plain", tempMax24.c_str());
@@ -152,27 +138,49 @@ void setup(){
   server.on("/tempmin24", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/plain", tempMin24.c_str());
   });
-  // Start server
+  
   server.begin();
-
-    //Radio Setup
   radio.begin();
   radio.openReadingPipe(0, address);
   radio.setPALevel(RF24_PA_MIN);
   radio.startListening();
-
 }
  
 void loop(){
   if (radio.available()) {
     radio.read(&receiveData, sizeof(receiveData));
-    
-    tempNow = receiveData[0];
-    tempMin24 = receiveData[1];
-    tempMax24 = receiveData[2];
-
-    Serial.println(tempNow);
-    
+    temp = receiveData[0];
+    prepareData();
   }
+}
 
+void prepareData() 
+{
+  for (int i = 0; i < n_samples - 1; i++)
+  {
+    samples[i] = samples[i+1];
+  }
+  samples[n_samples-1] = temp;
+
+  warmestDay = 0.0;
+  coldestDay = 100.0;
+  
+  for (int i = 0; i < n_samples; i++)
+  {
+    if ((coldestDay > samples[i]) && (temp > 0))
+    {
+      coldestDay = samples[i];
+      coldestDayIndex = i;
+    }
+  }
+  
+  for (int i = 0; i < n_samples; i++)
+  {
+    if ((warmestDay < samples[i]) && (temp > 0))
+    {
+      warmestDay = samples[i];
+      warmestDayIndex = i;
+    }
+  }
+  startTime = currentTime;
 }
