@@ -23,7 +23,7 @@ copies or substantial portions of the Software. -->
   </style>
 </head>
 <body>
-  <h2>Jakten på >1.0 kg</h2>
+  <h2>WATER TEMPERATURE NODES</h2>
   <div id="chart-temperature" class="container"></div>
 </body>
 <script>
@@ -44,7 +44,7 @@ var chartT = new Highcharts.Chart({
     dateTimeLabelFormats: { second: '%H:%M:%S' }
   },
   yAxis: {
-    title: { text: 'Temperature (C)' }
+    title: { text: 'Temperature (deg C)' }
   },
   credits: { enabled: false }
 });
@@ -55,7 +55,7 @@ setInterval(function ( ) {
       var x = (new Date()).getTime(),
           y = parseFloat(this.responseText);
       //console.log(this.responseText);
-      if(chartT.series[0].data.length > 100) {
+      if(chartT.series[0].data.length > 60) {
         chartT.series[0].addPoint([x, y], true, true, true);
       } else {
         chartT.series[0].addPoint([x, y], true, false, true);
@@ -64,7 +64,7 @@ setInterval(function ( ) {
   };
   xhttp.open("GET", "/temperature", true);
   xhttp.send();
-}, 1000 ) ;
+}, 60000 ) ;
 
 </script>
 </html>

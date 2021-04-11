@@ -25,21 +25,16 @@
 RF24 radio(D4, D8); // CE, CSN
 const byte address[6] = "01488";
 float receiveData[3];
+float t;
 
-const char* ssid = "Telenor7889nye";
-const char* password = "nqidqnwlbpxbn";
+const char* ssid = "AndroidAP66E8";
+const char* password = "12345678";
 
 AsyncWebServer server(80);
 
 String readTemp() 
 {
- float t;
- if (radio.available()) 
- {
-    radio.read(&receiveData, sizeof(receiveData));
-    t = receiveData[0];
-    return String(t);
- }
+  return String(t);
 }
 
 void setup(){
@@ -54,10 +49,8 @@ void setup(){
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(1000);
-    digitalWrite(LED_BUILTIN, LOW);
     Serial.println("Connecting to WiFi..");
+    delay(1000);
   }
 
   Serial.println(WiFi.localIP());
@@ -66,9 +59,6 @@ void setup(){
     request->send(SPIFFS, "/index.html");
   });
   server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/plain", readTemp().c_str());
-  });
-    server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/plain", readTemp().c_str());
   });
 
@@ -82,5 +72,11 @@ void setup(){
  
 void loop()
 {
-
+ if (radio.available()) 
+ {
+    radio.read(&receiveData, sizeof(receiveData));
+    t = receiveData[0];
+ }
+ 
+ delay(50);
 }
