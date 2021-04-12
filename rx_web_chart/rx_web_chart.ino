@@ -27,8 +27,8 @@ const byte address[6] = "01488";
 float receiveData[3];
 float t;
 
-const char* ssid = "AndroidAP66E8";
-const char* password = "12345678";
+const char* ssid = "Telenor7889nye";
+const char* password = "nqidqnwlbpxbn";
 
 AsyncWebServer server(80);
 
@@ -39,7 +39,7 @@ String readTemp()
 
 void setup(){
   Serial.begin(115200);
-  
+    
   bool status; 
 
   if(!SPIFFS.begin()){
